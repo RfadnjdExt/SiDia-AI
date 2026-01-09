@@ -1,38 +1,60 @@
-# sv
+# SiDia-AI
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SiDia-AI adalah asisten diagnosis medis cerdas yang ditenagai oleh Google Gemini AI. Aplikasi ini menganalisis gejala yang dilaporkan pengguna untuk mengidentifikasi kemungkinan penyakit, memberikan wawasan mendalam, dan saran medis dalam Bahasa Indonesia.
 
-## Creating a project
+## Fitur
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Analisis Gejala**: Masukkan daftar gejala untuk mendapatkan analisis instan.
+- **Probabilitas Penyakit**: Mengurutkan potensi penyakit berdasarkan kemungkinannya.
+- **Wawasan Mendalam**: Pencocokan gejala yang unik dan saran medis yang disesuaikan untuk setiap potensi diagnosis.
+- **Terlokalisasi**: Semua respons dan saran diberikan dalam Bahasa Indonesia.
 
-```sh
-# create a new project in the current directory
-npx sv create
+## Teknologi yang Digunakan
 
-# create a new project in my-app
-npx sv create my-app
+- **Framework**: [SvelteKit](https://kit.svelte.dev/)
+- **Styling**: [TailwindCSS](https://tailwindcss.com/)
+- **Model AI**: [Google Gemini](https://ai.google.dev/) (gemini-2.5-flash)
+- **Runtime**: [Bun](https://bun.sh/)
+
+## Cara Memulai
+
+### Prasyarat
+
+- [Bun](https://bun.sh/) sudah terinstall
+- Kunci API Google Gemini (Gemini API Key)
+
+### Instalasi
+
+1. Salin file proyek ke komputer lokal Anda.
+
+2. Install dependensi:
+   ```bash
+   bun install
+   ```
+
+3. Konfigurasi Variabel Lingkungan:
+   Buat file `.env` di direktori root dan tambahkan kunci API Gemini Anda:
+   ```env
+   GEMINI_API_KEY=kunci_api_anda_disini
+   ```
+
+4. Jalankan server pengembangan:
+   ```bash
+   bun --bun run dev
+   ```
+
+## Penggunaan API
+
+### `POST /api/diagnosis`
+
+Menerima payload JSON dengan daftar gejala.
+
+**Request:**
+```json
+{
+  "symptoms": ["demam", "batuk", "pusing"]
+}
 ```
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+**Response:**
+Mengembalikan array JSON berisi potensi penyakit dengan jumlah kecocokan gejala dan saran medis.
