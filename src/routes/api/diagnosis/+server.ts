@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request }) => {
             return json({ error: 'Symptoms are required' }, { status: 400 });
         }
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
         const prompt = `
         Act as a medical diagnosis assistant. The user is experiencing these symptoms: ${symptoms.join(', ')}.
