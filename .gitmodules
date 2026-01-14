@@ -1,6 +1,0 @@
-[submodule "reference"]
-	path = reference
-	url = https://github.com/RfadnjdExt/SiDia.git
-[submodule "src/lib/submodules/chatgpt"]
-	path = src/lib/submodules/chatgpt
-	url = https://github.com/realasfngl/ChatGPT.git
