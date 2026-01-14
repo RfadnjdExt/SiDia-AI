@@ -1,23 +1,58 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 @import "tailwindcss";
 
 @theme {
-    --font-sans: 'Outfit', sans-serif;
-    --color-primary: #3b82f6;
-    --color-secondary: #8b5cf6;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-sans: 'Space Grotesk', sans-serif;
+    
+    --color-primary: #135bec;
+    --color-background-light: #f6f6f8;
+    --color-background-dark: #101622;
+    --color-noir-red: #ff2d55;
+}
+
+@layer utilities {
+    .redacted {
+        background-color: #000;
+        color: transparent;
+        user-select: none;
+        cursor: pointer;
+        transition: color 0.3s ease;
+    }
+    .redacted:hover {
+        background-color: transparent;
+        color: #fff;
+    }
+    .flashlight-reveal {
+        position: relative;
+        overflow: hidden;
+    }
+    .heartbeat-line {
+        stroke: #ff2d55;
+        stroke-width: 2;
+        fill: none;
+        filter: drop-shadow(0 0 5px rgba(255, 45, 85, 0.8));
+    }
+    .noir-gradient {
+        background: radial-gradient(circle at 50% 50%, #161f31 0%, #101622 100%);
+    }
+    .glass-panel {
+        background: rgba(35, 47, 72, 0.4);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(146, 164, 201, 0.1);
+    }
 }
 
 :root {
-    background: #0f172a;
-    color: #f8fafc;
+    color-scheme: dark;
 }
 
 body {
-    min-height: 100vh;
-    background:
-        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
-    background-attachment: fixed;
+    background-color: var(--color-background-dark);
+    font-family: var(--font-display);
+    color: white;
+    ::selection {
+        background-color: rgba(19, 91, 236, 0.3);
+    }
 }

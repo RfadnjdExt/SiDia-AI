@@ -7,8 +7,8 @@ import type { Disease, DiagnosisResult } from '$lib/types';
 export function diagnoseStrict(symptoms: string[]): Disease | null {
     if (symptoms.length === 0) return null;
     return diseases.find(d =>
-        d.symptoms.length > 0 &&
-        d.symptoms.every(s => symptoms.includes(s))
+        d.allSymptoms.length > 0 &&
+        d.allSymptoms.every((s: string) => symptoms.includes(s))
     ) || null;
 }
 
@@ -20,11 +20,11 @@ export function analyzeSymptoms(symptoms: string[]): DiagnosisResult[] {
     if (symptoms.length === 0) return [];
 
     const results: DiagnosisResult[] = diseases.map(disease => {
-        const matches = disease.symptoms.filter(s => symptoms.includes(s));
+        const matches = disease.allSymptoms.filter((s: string) => symptoms.includes(s));
         return {
             disease,
             matchCount: matches.length,
-            totalSymptoms: disease.symptoms.length
+            totalSymptoms: disease.allSymptoms.length
         };
     });
 
