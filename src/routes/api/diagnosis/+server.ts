@@ -2,48 +2,19 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { env } from '$env/dynamic/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { appConfig } from '$lib/config';
 
+// Force check for API Key
 if (!env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is not set');
 }
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
 
-async function getNativeDiagnosis(prompt: string) {
+async function getDiagnosis(prompt: string) {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();
-}
-
-async function getGptDiagnosis(prompt: string) {
-    const response = await fetch(appConfig.gptServerUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            message: prompt,
-            proxy: appConfig.gptProxy,
-            model: 'auto' // Default model
-        })
-    });
-
-    if (!response.ok) {
-        const errText = await response.text();
-        console.error('GPT Server Error Body:', errText);
-        throw new Error(`GPT Server Error (${response.status}): ${errText}`);
-    }
-
-    const rawText = await response.text();
-    console.log('GPT API Response Status:', response.status);
-    console.log('GPT API Raw Response:', rawText);
-
-    if (!rawText) {
-        throw new Error('GPT Server returned empty response');
-    }
-
-    const data = JSON.parse(rawText); // { status: "success", result: "..." }
-    return data.result;
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -85,14 +56,8 @@ export const POST: RequestHandler = async ({ request }) => {
         Limit to top 3 possibilities. ensure valid JSON.
         `;
 
-        let text = '';
-        console.log(`Using AI Provider: ${appConfig.aiProvider}`);
-
-        if (appConfig.aiProvider === 'gpt') {
-            text = await getGptDiagnosis(prompt);
-        } else {
-            text = await getNativeDiagnosis(prompt);
-        }
+        console.log(`Using AI Provider: GEMINI (Direct)`);
+        const text = await getDiagnosis(prompt);
 
         // Clean up markdown code blocks if present
         const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
