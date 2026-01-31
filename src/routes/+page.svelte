@@ -218,9 +218,13 @@
 				body: JSON.stringify({ symptoms: selectedSymptoms })
 			});
 
-			if (!response.ok) throw new Error('Diagnosis failed');
-
 			const data = await response.json();
+
+			if (!response.ok) {
+				// Use the specific error from server if available
+				throw new Error(data.error || 'Diagnosis failed');
+			}
+
 			results = data;
 			hasAnalyzed = true;
 
@@ -230,8 +234,9 @@
 				// Trigger Voice
 				speakResult(results[0]);
 			}
-		} catch (e) {
-			errorMsg = 'Neural Uplink Failed. Retry transmission.';
+		} catch (e: any) {
+			// Show the actual error message to the user
+			errorMsg = e.message || 'Neural Uplink Failed. Retry transmission.';
 			console.error(e);
 		} finally {
 			isLoading = false;
@@ -349,7 +354,31 @@
 	</div>
 </div>
 
+<!-- ERROR ALERT BANNER -->
+{#if errorMsg}
+	<div class="px-8 pb-4 relative z-50 flex justify-center" transition:fly={{ y: -20 }}>
+		<div
+			class="bg-red-500/10 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl flex items-center gap-4 shadow-[0_0_20px_rgba(239,68,68,0.3)] max-w-2xl w-full backdrop-blur-md"
+		>
+			<span class="material-symbols-outlined text-red-500 text-3xl animate-pulse">warning</span>
+			<div class="flex-1">
+				<h4 class="font-bold uppercase text-xs tracking-widest text-red-500 mb-1">
+					System Critical Failure
+				</h4>
+				<p class="text-sm font-mono">{errorMsg}</p>
+			</div>
+			<button
+				class="p-2 hover:bg-red-500/20 rounded-full transition-colors"
+				onclick={() => (errorMsg = '')}
+			>
+				<span class="material-symbols-outlined text-sm">close</span>
+			</button>
+		</div>
+	</div>
+{/if}
+
 <!-- Diagnostic Main View -->
+
 <div class="px-8 pb-8 flex flex-col relative z-10 flex-1 max-w-4xl mx-auto w-full">
 	<!-- Content Area (Input OR Results) -->
 	<div class="w-full space-y-8">
