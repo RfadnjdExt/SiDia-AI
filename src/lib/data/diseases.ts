@@ -28,3 +28,11 @@ export const diseases: Disease[] = [
 ];
 
 export const allSymptoms = Array.from(new Set(diseases.flatMap(d => d.allSymptoms))).sort();
+
+// Group symptoms for Body Map
+export const symptomCategories: Record<string, string[]> = {
+    head: ["sakit kepala", "pusing", "pilek", "hilang penciuman"],
+    torso: ["batuk", "sesak nafas", "nyeri dada"],
+    digestive: ["mual", "sakit perut", "diare"],
+    general: ["demam", "demam tinggi", "lemas", "nyeri sendi", "bintik merah"]
+};

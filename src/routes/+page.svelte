@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { fade, blur, fly } from 'svelte/transition';
-	import { allSymptoms } from '$lib/data/diseases';
+	import { allSymptoms, symptomCategories } from '$lib/data/diseases';
 	import type { DiagnosisResult } from '$lib/types';
 	import { ReportFactory } from '$lib/services/ReportFactory';
 	import { HistoryService, type HistoryLog } from '$lib/services/HistoryService';
 	import { selectedHistoryItem } from '$lib/stores/appState';
+	import { onDestroy, onMount } from 'svelte';
+	import BodyMap from '$lib/components/BodyMap.svelte';
 
 	let selectedSymptoms: string[] = $state([]);
 	let results: DiagnosisResult[] = $state([]);
@@ -15,6 +17,44 @@
 	let showHistory = $state(false);
 	let historyLogs: HistoryLog[] = $state([]);
 
+	// Voice Interface State
+	let isVoiceEnabled = $state(true);
+	let isSpeaking = $state(false);
+	let synth: SpeechSynthesis | null = null;
+	let voice: SpeechSynthesisVoice | null = null;
+
+	// View Mode State
+	let viewMode: 'list' | 'map' = $state('list');
+	let selectedBodyPart: string | null = $state(null);
+
+	onMount(() => {
+		if (typeof window !== 'undefined') {
+			synth = window.speechSynthesis;
+			// Load voices
+			const loadVoices = () => {
+				const voices = synth?.getVoices() || [];
+				// Try to find a good English voice
+				voice =
+					voices.find(
+						(v) =>
+							v.name.includes('Google US English') ||
+							v.name.includes('Microsoft Zira') ||
+							v.lang === 'en-US'
+					) || voices[0];
+			};
+			loadVoices();
+			if (synth?.onvoiceschanged !== undefined) {
+				synth.onvoiceschanged = loadVoices;
+			}
+		}
+	});
+
+	onDestroy(() => {
+		if (synth) {
+			synth.cancel();
+		}
+	});
+
 	// Restore from History
 	selectedHistoryItem.subscribe((data) => {
 		if (data) {
@@ -24,6 +64,7 @@
 			if (data.disease?.matchedSymptoms) {
 				selectedSymptoms = [...data.disease.matchedSymptoms];
 			}
+			// Don't auto-speak on history restore to avoid annoyance
 		}
 	});
 
@@ -38,6 +79,11 @@
 		errorMsg = '';
 	}
 
+	function handleBodyPartSelect(event: CustomEvent<string>) {
+		const part = event.detail;
+		selectedBodyPart = part === selectedBodyPart ? null : part;
+	}
+
 	function handleInputKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
 			const val = inputQuery.trim();
@@ -49,16 +95,61 @@
 	}
 
 	function clearSelection() {
+		stopSpeaking();
 		selectedSymptoms = [];
 		hasAnalyzed = false;
 		errorMsg = '';
 		results = [];
 	}
 
+	function stopSpeaking() {
+		if (synth && isSpeaking) {
+			synth.cancel();
+			isSpeaking = false;
+		}
+	}
+
+	function speakResult(result: DiagnosisResult) {
+		if (!isVoiceEnabled || !synth || !result.disease) return;
+
+		// Cancel any previous speech
+		synth.cancel();
+
+		const diseaseName = result.disease.name;
+		const confidence = Math.round((result.matchCount / result.totalSymptoms) * 100);
+		const description = result.disease.description;
+		const advice = result.disease.advice;
+
+		const textToSpeak = `
+			Diagnosis complete. 
+			Subject identified with ${diseaseName}. 
+			Confidence level: ${confidence} percent.
+			Analysis: ${description}.
+			Recommendation: ${advice}.
+		`;
+
+		const utterance = new SpeechSynthesisUtterance(textToSpeak);
+
+		if (voice) {
+			utterance.voice = voice;
+		}
+
+		utterance.rate = 0.9; // Slightly slower
+		utterance.pitch = 0.8; // Lower pitch for "Noir" feel
+
+		utterance.onstart = () => (isSpeaking = true);
+		utterance.onend = () => (isSpeaking = false);
+		utterance.onerror = () => (isSpeaking = false);
+
+		synth.speak(utterance);
+	}
+
 	async function handleDiagnose() {
 		isLoading = true;
 		errorMsg = '';
 		results = [];
+		stopSpeaking();
+
 		// Simulate "Deep Processing" delay for effect
 		await new Promise((r) => setTimeout(r, 800));
 
@@ -78,6 +169,8 @@
 			// Save to History (Auto-log)
 			if (results.length > 0) {
 				HistoryService.save(results[0], 'Pasien Umum');
+				// Trigger Voice
+				speakResult(results[0]);
 			}
 		} catch (e) {
 			errorMsg = 'Neural Uplink Failed. Retry transmission.';
@@ -88,6 +181,7 @@
 	}
 
 	function reset() {
+		stopSpeaking();
 		selectedSymptoms = [];
 		results = [];
 		hasAnalyzed = false;
@@ -100,6 +194,7 @@
 	}
 
 	function selectLog(log: HistoryLog) {
+		stopSpeaking();
 		selectedHistoryItem.set(log.result);
 		showHistory = false;
 	}
@@ -147,9 +242,54 @@
 			{/if}
 		</p>
 	</div>
+
+	<!-- Top Controls -->
+	<div class="flex items-center gap-4">
+		<!-- View Toggle -->
+		{#if !hasAnalyzed}
+			<div class="bg-black/40 rounded-full p-1 border border-white/10 flex">
+				<button
+					class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all {viewMode ===
+					'list'
+						? 'bg-primary text-white shadow-[0_0_15px_rgba(19,91,236,0.5)]'
+						: 'text-white/40 hover:text-white'}"
+					onclick={() => (viewMode = 'list')}
+				>
+					Terminal
+				</button>
+				<button
+					class="px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all {viewMode ===
+					'map'
+						? 'bg-primary text-white shadow-[0_0_15px_rgba(19,91,236,0.5)]'
+						: 'text-white/40 hover:text-white'}"
+					onclick={() => (viewMode = 'map')}
+				>
+					Bio-Scan
+				</button>
+			</div>
+		{/if}
+
+		<!-- Voice Control Toggle -->
+		<button
+			class="size-12 rounded-full border border-white/10 hover:border-primary/50 bg-black/40 flex items-center justify-center transition-all group relative overflow-hidden cursor-pointer"
+			onclick={() => {
+				isVoiceEnabled = !isVoiceEnabled;
+				if (!isVoiceEnabled) stopSpeaking();
+			}}
+			title={isVoiceEnabled ? 'Nonaktifkan Suara' : 'Aktifkan Suara'}
+		>
+			{#if isSpeaking}
+				<span class="absolute inset-0 bg-primary/20 animate-pulse"></span>
+			{/if}
+			<span
+				class="material-symbols-outlined text-white/80 group-hover:text-primary transition-colors relative z-10 select-none"
+			>
+				{isVoiceEnabled ? (isSpeaking ? 'record_voice_over' : 'volume_up') : 'volume_off'}
+			</span>
+		</button>
+	</div>
 </div>
 
-<!-- Diagnostic Main View -->
 <!-- Diagnostic Main View -->
 <div class="px-8 pb-8 flex flex-col relative z-10 flex-1 max-w-4xl mx-auto w-full">
 	<!-- Content Area (Input OR Results) -->
@@ -163,12 +303,18 @@
 				</div>
 				<div>
 					<h3 class="text-xl font-bold">
-						{hasAnalyzed ? 'Analisis Klaster Gejala' : 'Input Berkas Pasien'}
+						{hasAnalyzed
+							? 'Analisis Klaster Gejala'
+							: viewMode === 'map'
+								? 'Pemindaian Biometrik'
+								: 'Input Berkas Pasien'}
 					</h3>
 					<p class="text-white/40 text-sm italic">
 						{hasAnalyzed
 							? 'Sorot sensor untuk memeriksa.'
-							: 'Masukkan anomali yang diamati untuk analisis.'}
+							: viewMode === 'map'
+								? 'Pilih zona tubuh untuk identifikasi gejala.'
+								: 'Masukkan anomali yang diamati untuk analisis.'}
 					</p>
 				</div>
 				<div class="ml-auto">
@@ -185,47 +331,105 @@
 			{#if !hasAnalyzed}
 				<!-- INPUT MODE -->
 				<div class="space-y-6 flex-1 flex flex-col" in:fade>
-					<div class="relative">
-						<span class="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-mono text-sm"
-							>></span
-						>
-						<input
-							bind:value={inputQuery}
-							onkeydown={handleInputKeydown}
-							type="text"
-							placeholder="TERMINAL_INPUT: Ketik gejala dan tekan ENTER..."
-							class="w-full bg-black/50 border border-white/20 rounded-xl px-10 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 font-mono transition-all"
-						/>
-					</div>
+					{#if viewMode === 'list'}
+						<!-- LIST MODE -->
+						<div class="relative" in:fade>
+							<span class="absolute left-4 top-1/2 -translate-y-1/2 text-primary font-mono text-sm"
+								>></span
+							>
+							<input
+								bind:value={inputQuery}
+								onkeydown={handleInputKeydown}
+								type="text"
+								placeholder="TERMINAL_INPUT: Ketik gejala dan tekan ENTER..."
+								class="w-full bg-black/50 border border-white/20 rounded-xl px-10 py-4 text-white placeholder-white/20 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 font-mono transition-all"
+							/>
+						</div>
+					{:else}
+						<!-- MAP MODE -->
+						<div class="flex flex-col md:flex-row gap-8 items-center md:items-start" in:fade>
+							<!-- Body Map -->
+							<div class="shrink-0">
+								<BodyMap selectedPart={selectedBodyPart} on:select={handleBodyPartSelect} />
+								<p
+									class="text-center text-xs text-white/30 mt-4 font-mono uppercase tracking-widest"
+								>
+									Zona Aktif: {selectedBodyPart || 'Menunggu Input'}
+								</p>
+							</div>
 
-					<div class="flex flex-wrap gap-2">
+							<!-- Contextual Symptoms -->
+							<div class="flex-1 space-y-4 w-full">
+								{#if selectedBodyPart}
+									<h4
+										class="text-sm font-bold text-primary uppercase tracking-widest border-b border-white/10 pb-2"
+									>
+										Gejala Terdeteksi: {selectedBodyPart}
+									</h4>
+									<div class="grid grid-cols-2 gap-2">
+										{#each symptomCategories[selectedBodyPart] || [] as sym}
+											{@const isSelected = selectedSymptoms.includes(sym)}
+											<button
+												class="text-left px-4 py-3 rounded-lg border transition-all text-sm flex items-center gap-2 cursor-pointer
+                                                 {isSelected
+													? 'bg-primary/20 border-primary text-white'
+													: 'bg-white/5 border-transparent text-white/60 hover:text-primary hover:border-primary/30'}"
+												onclick={() => toggleSymptom(sym)}
+											>
+												<span class="material-symbols-outlined text-xs">
+													{isSelected ? 'check_box' : 'check_box_outline_blank'}
+												</span>
+												{sym}
+											</button>
+										{/each}
+									</div>
+								{:else}
+									<div
+										class="h-full flex items-center justify-center text-white/20 text-sm italic border-2 border-dashed border-white/5 rounded-xl p-8"
+									>
+										Klik area tubuh untuk menampilkan opsi gejala spesifik.
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
+
+					<!-- Selected Symptoms Tag Cloud -->
+					<div class="flex flex-wrap gap-2 pt-4 border-t border-white/5">
+						<span class="text-xs font-bold text-white/30 uppercase tracking-widest py-1.5 mr-2"
+							>Buffer Data:</span
+						>
 						{#each selectedSymptoms as symptom}
 							<button
 								class="px-3 py-1.5 rounded-lg bg-primary/20 border border-primary/50 text-white text-sm font-medium hover:bg-noir-red/20 hover:border-noir-red/50 hover:text-noir-red transition-all flex items-center gap-2 group"
 								onclick={() => toggleSymptom(symptom)}
 							>
 								{symptom}
-								<span class="material-symbols-outlined text-[10px] group-hover:block hidden"
-									>close</span
+								<span class="material-symbols-outlined text-xs group-hover:block hidden">close</span
 								>
 							</button>
 						{/each}
+						{#if selectedSymptoms.length === 0}
+							<span class="text-sm text-white/20 py-1.5 italic">Kosong...</span>
+						{/if}
 					</div>
 
-					<div
-						class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-4 opacity-70 hover:opacity-100 transition-opacity"
-					>
-						{#each allSymptoms
-							.filter((s) => !selectedSymptoms.includes(s))
-							.slice(0, 12) as suggestion}
-							<button
-								class="text-left px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-white/60 hover:text-primary border border-transparent hover:border-primary/30 transition-all cursor-pointer"
-								onclick={() => toggleSymptom(suggestion)}
-							>
-								+ {suggestion}
-							</button>
-						{/each}
-					</div>
+					{#if viewMode === 'list'}
+						<div
+							class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-4 opacity-70 hover:opacity-100 transition-opacity"
+						>
+							{#each allSymptoms
+								.filter((s) => !selectedSymptoms.includes(s))
+								.slice(0, 12) as suggestion}
+								<button
+									class="text-left px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-white/60 hover:text-primary border border-transparent hover:border-primary/30 transition-all cursor-pointer"
+									onclick={() => toggleSymptom(suggestion)}
+								>
+									+ {suggestion}
+								</button>
+							{/each}
+						</div>
+					{/if}
 
 					<div class="mt-auto pt-6 flex justify-end gap-4">
 						{#if selectedSymptoms.length > 0}
@@ -259,7 +463,6 @@
 				<!-- RESULTS MODE -->
 				<div class="space-y-8" in:fade>
 					{#if results.length > 0}
-						<!-- Primary Result -->
 						<!-- Primary Result -->
 						<div class="space-y-6 text-lg leading-relaxed">
 							<div class="border-b border-white/10 pb-4 mb-4">
@@ -309,7 +512,6 @@
 								</div>
 								<div class="flex items-start gap-4">
 									<div class="size-2 rounded-full bg-primary mt-2.5 shrink-0"></div>
-									<p class="text-white/80"></p>
 									<p class="text-white/80">
 										Tingkat Keyakinan:
 										<span class="text-primary font-bold">
@@ -460,7 +662,7 @@
 
 					<button
 						onclick={reset}
-						class="w-full mt-6 py-4 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 hover:text-white transition-all font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+						class="w-full mt-6 py-4 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 hover:text-white transition-all font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer"
 					>
 						<span class="material-symbols-outlined text-sm">restart_alt</span>
 						Reset Berkas Kasus
@@ -473,7 +675,7 @@
 
 {#if showHistory}
 	<div
-		class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+		class="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
 		transition:fade
 	>
 		<div
