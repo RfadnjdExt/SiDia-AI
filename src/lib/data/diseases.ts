@@ -24,6 +24,12 @@ export const diseases: Disease[] = [
         description: "Penyakit virus yang dibawa oleh nyamuk, terjadi di daerah tropis dan subtropis.",
         allSymptoms: ["demam tinggi", "bintik merah", "nyeri sendi", "mual", "sakit kepala"],
         advice: "Banyak minum air putih dan periksa trombosit"
+    },
+    {
+        name: "Sindrom Wibu Akut",
+        description: "Gangguan psikologis yang ditandai dengan obsesi berlebih pada karakter 2D dan penolakan realita 3D.",
+        allSymptoms: ["Suka Anime", "Marathon Nonton", "Waifu 2D", "Jarang Mandi", "Halu"],
+        advice: "Sentuh rumput (touch grass) segera dan kurangi asupan anime."
     }
 ];
 
@@ -31,8 +37,8 @@ export const allSymptoms = Array.from(new Set(diseases.flatMap(d => d.allSymptom
 
 // Group symptoms for Body Map
 export const symptomCategories: Record<string, string[]> = {
-    head: ["sakit kepala", "pusing", "pilek", "hilang penciuman"],
+    head: ["sakit kepala", "pusing", "pilek", "hilang penciuman", "Suka Anime", "Waifu 2D", "Halu"],
     torso: ["batuk", "sesak nafas", "nyeri dada"],
     digestive: ["mual", "sakit perut", "diare"],
-    general: ["demam", "demam tinggi", "lemas", "nyeri sendi", "bintik merah"]
+    general: ["demam", "demam tinggi", "lemas", "nyeri sendi", "bintik merah", "Marathon Nonton", "Jarang Mandi"]
 };

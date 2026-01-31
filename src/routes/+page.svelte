@@ -21,7 +21,10 @@
 	let isVoiceEnabled = $state(true);
 	let isSpeaking = $state(false);
 	let synth: SpeechSynthesis | null = null;
-	let voice: SpeechSynthesisVoice | null = null;
+	let voiceAI: SpeechSynthesisVoice | null = null;
+	let voiceDoctor: SpeechSynthesisVoice | null = null;
+	let dialogueScript: { role: 'AI' | 'Doctor'; text: string }[] = $state([]);
+	let currentDialogueIndex = $state(-1);
 
 	// View Mode State
 	let viewMode: 'list' | 'map' = $state('list');
@@ -33,14 +36,28 @@
 			// Load voices
 			const loadVoices = () => {
 				const voices = synth?.getVoices() || [];
-				// Try to find a good English voice
-				voice =
-					voices.find(
+				// Sort to prefer English
+				const enVoices = voices.filter((v) => v.lang.startsWith('en'));
+
+				// 1. AI Voice (Prefer Google US English or Zira - Female/Robotic)
+				voiceAI =
+					enVoices.find(
+						(v) => v.name.includes('Google US English') || v.name.includes('Microsoft Zira')
+					) ||
+					enVoices[0] ||
+					null;
+
+				// 2. Doctor Voice (Prefer Male or Distinct form AI)
+				// Try to find a male voice if AI is female (Zira/Google US are usually female sounding)
+				voiceDoctor =
+					enVoices.find(
 						(v) =>
-							v.name.includes('Google US English') ||
-							v.name.includes('Microsoft Zira') ||
-							v.lang === 'en-US'
-					) || voices[0];
+							v.name !== voiceAI?.name &&
+							(v.name.includes('Mark') || v.name.includes('David') || v.name.includes('Male'))
+					) ||
+					enVoices.find((v) => v.name !== voiceAI?.name) ||
+					voiceAI ||
+					null;
 			};
 			loadVoices();
 			if (synth?.onvoiceschanged !== undefined) {
@@ -100,48 +117,89 @@
 		hasAnalyzed = false;
 		errorMsg = '';
 		results = [];
+		dialogueScript = [];
 	}
 
 	function stopSpeaking() {
-		if (synth && isSpeaking) {
+		if (synth) {
 			synth.cancel();
 			isSpeaking = false;
+			currentDialogueIndex = -1;
 		}
 	}
 
-	function speakResult(result: DiagnosisResult) {
-		if (!isVoiceEnabled || !synth || !result.disease) return;
-
-		// Cancel any previous speech
-		synth.cancel();
-
+	function generateScript(result: DiagnosisResult): { role: 'AI' | 'Doctor'; text: string }[] {
+		if (!result.disease) return [];
 		const diseaseName = result.disease.name;
 		const confidence = Math.round((result.matchCount / result.totalSymptoms) * 100);
-		const description = result.disease.description;
-		const advice = result.disease.advice;
 
-		const textToSpeak = `
-			Diagnosis complete. 
-			Subject identified with ${diseaseName}. 
-			Confidence level: ${confidence} percent.
-			Analysis: ${description}.
-			Recommendation: ${advice}.
-		`;
+		// Base AI Report
+		const script: { role: 'AI' | 'Doctor'; text: string }[] = [
+			{
+				role: 'AI',
+				text: `Subject identified. Diagnosis: ${diseaseName}. Confidence level: ${confidence} percent.`
+			},
+			{ role: 'AI', text: `Analysis: ${result.disease.description}` }
+		];
 
-		const utterance = new SpeechSynthesisUtterance(textToSpeak);
-
-		if (voice) {
-			utterance.voice = voice;
+		// Doctor Commentary (Easter Egg or Standard)
+		if (diseaseName === 'Sindrom Wibu Akut') {
+			script.push({ role: 'Doctor', text: 'Oh good heavens. Another one lost to the 2D realm.' });
+			script.push({
+				role: 'Doctor',
+				text: 'Listen to me closely. Turn off the computer. Go outside. And touch some grass. Immediate rehabilitation required.'
+			});
+		} else {
+			script.push({ role: 'Doctor', text: `Hmm. ${diseaseName}. Doctor's recommendation:` });
+			script.push({ role: 'Doctor', text: result.disease.advice });
 		}
 
-		utterance.rate = 0.9; // Slightly slower
-		utterance.pitch = 0.8; // Lower pitch for "Noir" feel
+		return script;
+	}
 
-		utterance.onstart = () => (isSpeaking = true);
-		utterance.onend = () => (isSpeaking = false);
-		utterance.onerror = () => (isSpeaking = false);
+	function speakResult(result: DiagnosisResult) {
+		// Stop any existing speech
+		stopSpeaking();
 
-		synth.speak(utterance);
+		if (!isVoiceEnabled || !synth || !result.disease) return;
+
+		dialogueScript = generateScript(result);
+
+		playDialogue(0);
+	}
+
+	function playDialogue(index: number) {
+		if (index >= dialogueScript.length) {
+			isSpeaking = false;
+			currentDialogueIndex = -1;
+			return;
+		}
+
+		isSpeaking = true;
+		currentDialogueIndex = index;
+		const line = dialogueScript[index];
+		const utterance = new SpeechSynthesisUtterance(line.text);
+
+		// Assign Voice based on Role
+		if (line.role === 'AI') {
+			if (voiceAI) utterance.voice = voiceAI;
+			utterance.rate = 0.9;
+			utterance.pitch = 0.8; // Lower/Robot
+		} else {
+			if (voiceDoctor) utterance.voice = voiceDoctor;
+			utterance.rate = 1.0;
+			utterance.pitch = 1.0; // Normal/Human
+		}
+
+		utterance.onend = () => {
+			playDialogue(index + 1);
+		};
+
+		utterance.onerror = () => {
+			isSpeaking = false;
+		};
+
+		synth?.speak(utterance);
 	}
 
 	async function handleDiagnose() {
@@ -186,6 +244,7 @@
 		results = [];
 		hasAnalyzed = false;
 		errorMsg = '';
+		dialogueScript = [];
 	}
 
 	function openHistory() {
@@ -405,7 +464,8 @@
 								onclick={() => toggleSymptom(symptom)}
 							>
 								{symptom}
-								<span class="material-symbols-outlined text-xs group-hover:block hidden">close</span
+								<span class="material-symbols-outlined text-[10px] group-hover:block hidden"
+									>close</span
 								>
 							</button>
 						{/each}
@@ -487,6 +547,34 @@
 								</span>
 								berdasarkan {results[0].matchCount} penanda saraf yang cocok.
 							</p>
+
+							<!-- Dialogue Script (Visual Feedback for Voice) -->
+							{#if dialogueScript.length > 0}
+								<div class="bg-black/30 border border-white/10 rounded-xl p-4 my-6 space-y-3">
+									<h4
+										class="text-xs font-bold text-white/40 uppercase tracking-widest border-b border-white/5 pb-2 mb-2"
+									>
+										Transkripsi Audio
+									</h4>
+									{#each dialogueScript as line, i}
+										<div
+											class="flex gap-3 text-sm {i === currentDialogueIndex
+												? 'opacity-100'
+												: 'opacity-50'} transition-opacity duration-300"
+										>
+											<span
+												class="font-bold uppercase text-[10px] tracking-wider w-12 shrink-0 py-1
+                                                {line.role === 'AI'
+													? 'text-primary'
+													: 'text-emerald-400'}"
+											>
+												{line.role}:
+											</span>
+											<p class="text-white/80">{line.text}</p>
+										</div>
+									{/each}
+								</div>
+							{/if}
 
 							<!-- Description -->
 							<div
