@@ -6,76 +6,48 @@ SiDia-AI adalah platform diagnosis medis futuristik dengan antarmuka **"Noir Med
 
 ![SiDia Banner](static/banner.png)
 
-## 🚀 Fitur Utama
+## Fitur Utama
 
-- **🧠 Neural Cluster Analysis**: Diagnosis penyakit berdasarkan pola gejala menggunakan **ChatGPT Backend** (Python).
-- **🕵️‍♂️ Noir / Sci-Fi UI**: Antarmuka gelap, glassmorphism, dan animasi "heartbeat" futuristik.
-- **📜 Riwayat Pasien (Patient History)**: Penyimpanan lokal untuk melihat kembali log diagnosis sebelumnya.
-- **🔍 Neural Interrogation**: Sistem cerdas yang menanyakan "gejala lanjutan" untuk memperkuat akurasi diagnosis.
-- **⚡ Hybrid Architecture**:
-  - **Frontend**: SvelteKit (Tersedia di Vercel).
-  - **Backend**: Python FastAPI + `curl_cffi` (Tersedia di Railway) untuk bypass proteksi bot.
+- **Neural Cluster Analysis**: Diagnosis penyakit berdasarkan pola gejala menggunakan **Google Gemini API**.
+- **Noir / Sci-Fi UI**: Antarmuka gelap, glassmorphism, dan animasi "heartbeat" futuristik.
+- **Riwayat Pasien (Patient History)**: Penyimpanan lokal untuk melihat kembali log diagnosis sebelumnya.
+- **Neural Interrogation**: Sistem cerdas yang menanyakan "gejala lanjutan" untuk memperkuat akurasi diagnosis.
 
-## 🛠️ Teknologi
+## Teknologi
 
 - **Frontend**: [SvelteKit](https://kit.svelte.dev/) + [TailwindCSS v4](https://tailwindcss.com/)
-- **Backend**: Python 3.9 + FastAPI
-- **Engine**: ChatGPT (Reverse Engineered via `curl_cffi`)
-- **Runtime Dev**: [Bun](https://bun.sh/) (Frontend) & Python (Backend)
+- **Engine**: Google Gemini API
+- **Runtime Dev**: [Bun](https://bun.sh/)
 
-## 📦 Cara Instalasi & Menjalankan (Local)
+## Cara Instalasi & Menjalankan (Local)
 
-Karena aplikasi ini menggunakan arsitektur Hybrid, Anda perlu menjalankan **dua server**:
-
-### 1. Persiapan Backend (Python)
-Server ini bertugas menangani komunikasi dengan ChatGPT agar tidak terdeteksi sebagai bot.
+Pastikan Anda sudah memiliki **API Key** dari [Google AI Studio](https://aistudio.google.com/).
 
 ```bash
-# Masuk ke folder backend
-cd src/lib/submodules/chatgpt
+# Clone Repository
+git clone https://github.com/RfadnjdExt/SiDia-AI.git
+cd SiDia-AI
 
-# Install dependensi
-pip install -r requirements.txt
-
-# Jalankan Server (Port 6969)
-python api_server.py
-```
-_Biarkan terminal ini terbuka._
-
-### 2. Persiapan Frontend (SvelteKit)
-Buka terminal baru untuk menjalankan antarmuka pengguna.
-
-```bash
-# Kembali ke root project
-cd ../../../..
-
-# Install dependensi JS
+# Install dependensi (Wajib Bun)
 bun install
 
-# Buat file .env dari contoh (jika perlu, meski config utama ada di src/lib/config.ts)
+# Setup Environment
+cp .env.example .env
+# Edit file .env dan masukkan GEMINI_API_KEY Anda
+
 # Jalankan Dev Server
-bun dev
+bun dev --host
 ```
 
-Buka browser di `http://localhost:5173`. Pastikan backend Python sudah jalan di port `6969`.
+Buka browser di `http://localhost:5173`.
 
-## ☁️ Deployment (Architecture Split)
+## Deployment
 
-Untuk stabilitas maksimal (menghindari IP Ban dari ChatGPT), kami menggunakan **Split Deployment**:
+Aplikasi ini dapat dideploy dengan mudah ke Vercel:
 
-1.  **Backend (Python) -> Railway** 🚂
-    *   Deploy repositori ini ke Railway.
-    *   Railway otomatis mendeteksi `Dockerfile` dan menjalankan server Python.
-    *   **Hasil**: Dapat URL API (contoh: `https://sidia-backend.up.railway.app`).
-
-2.  **Frontend (SvelteKit) -> Vercel** ▲
-    *   Deploy repositori ini ke Vercel.
-    *   Set Environment Variable di Vercel:
-        *   `GPT_SERVER_URL`: `https://sidia-backend.up.railway.app/conversation`
-        *   `AI_PROVIDER`: `gpt`
-
-## 📝 Catatan Penting
-- **IP Flagging**: Jika backend Python terkena "IP Flagged" atau "403 Forbidden", restart server Python (Backend) untuk mendapatkan sesi/token baru. Logika `auto-refresh` token sudah tertanam di `api_server.py`.
+1.  Deploy repositori ini ke **Vercel**.
+2.  Set Environment Variable:
+    *   `GEMINI_API_KEY`: API Key Anda.
 
 ---
-*Dibuat dengan ❤️ dan ☕ untuk Tugas Akhir / Proyek Pribadi.*
+*Dibuat dengan dedikasi untuk Tugas Akhir / Proyek Pribadi.*
