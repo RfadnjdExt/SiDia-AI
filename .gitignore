@@ -32,3 +32,10 @@ venv/
 .venv/
 env/
 .env/
+
+# Logs
+*.log
+logs/
+
+# File draft
+presentation_outline.md
